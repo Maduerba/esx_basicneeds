@@ -1,29 +1,74 @@
-ESX          = nil
+if GetResourceMetadata('es_extended', 'version') == '1.1.0' then
+    ESX = nil
+    CreateThread(function() while ESX == nil do Wait(0) TriggerEvent('esx:getSharedObject', function(obj) ESX = obj; end); end end)    
+else
+    ESX = exports["es_extended"]:getSharedObject()
+end
+
 local IsDead = false
 local IsAnimated = false
 local IsEating = false
-
-Citizen.CreateThread(function()
-	while ESX == nil do
-		TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
-		Citizen.Wait(0)
-	end
-end)
 
 AddEventHandler('esx:onPlayerDeath', function()
 	IsDead = true
 end)
 
-AddEventHandler('playerSpawned', function(spawn)
-	if IsDead then
-		TriggerEvent('esx_basicneeds:resetStatus')
-	end
+AddEventHandler('esx_status:loaded', function(status)
+	TriggerEvent('esx_status:registerStatus', 'hunger', 1000000, '#CFAD0F', function(status)
+		return Config.Visible
+	end, function(status)
+		status.remove(100)
+	end)
 
-	IsDead = false
+	TriggerEvent('esx_status:registerStatus', 'thirst', 1000000, '#0C98F1', function(status)
+		return Config.Visible
+	end, function(status)
+		status.remove(75)
+	end)
+end)
+
+AddEventHandler('esx_status:onTick', function(data)
+	local playerPed  = PlayerPedId()
+	local prevHealth = GetEntityHealth(playerPed)
+	local health     = prevHealth
+	
+	for k, v in pairs(data) do
+		if v.name == 'hunger' and v.percent == 0 then
+			if prevHealth <= 150 then
+				health = health - 5
+			else
+				health = health - 1
+			end
+		elseif v.name == 'thirst' and v.percent == 0 then
+			if prevHealth <= 150 then
+				health = health - 5
+			else
+				health = health - 1
+			end
+		end
+	end
+	
+	if health ~= prevHealth then SetEntityHealth(playerPed, health) end
+end)
+
+AddEventHandler('esx_basicneeds:isEating', function(cb)
+	cb(IsAnimated)
+end)
+
+AddEventHandler('esx_basicneeds:resetStatus', function()
+	TriggerEvent('esx_status:set', 'hunger', 500000)
+	TriggerEvent('esx_status:set', 'thirst', 500000)
+end)
+
+RegisterNetEvent('esx_basicneeds:healPlayer')
+AddEventHandler('esx_basicneeds:healPlayer', function()
+	TriggerEvent('esx_status:set', 'hunger', 1000000)
+	TriggerEvent('esx_status:set', 'thirst', 1000000)
+
+	SetEntityHealth(PlayerPedId(), GetEntityMaxHealth(playerPed))
 end)
 
 AddEventHandler('esx_status:loaded', function(status)
-
 	TriggerEvent('esx_status:registerStatus', 'hunger', 1000000, '#CFAD0F', function(status)
 		return true
 	end, function(status)
@@ -36,36 +81,38 @@ AddEventHandler('esx_status:loaded', function(status)
 		status.remove(75)
 	end)
 
-	Citizen.CreateThread(function()
+	CreateThread(function()
 		while true do
-			Citizen.Wait(1000)
+			Wait(1000)
 
-			local playerPed  = PlayerPedId()
-			local prevHealth = GetEntityHealth(playerPed)
+			local ped  		 = PlayerPedId()
+			local prevHealth = GetEntityHealth(ped)
 			local health     = prevHealth
 
-			TriggerEvent('esx_status:getStatus', 'hunger', function(status)
-				if status.val == 0 then
-					if prevHealth <= 150 then
-						health = health - 5
-					else
-						health = health - 1
+			if not IsDead then
+				TriggerEvent('esx_status:getStatus', 'hunger', function(status)
+					if status.val == 0 then
+						if prevHealth <= 150 then
+							health = health - 5
+						else
+							health = health - 1
+						end
 					end
-				end
-			end)
+				end)
 
-			TriggerEvent('esx_status:getStatus', 'thirst', function(status)
-				if status.val == 0 then
-					if prevHealth <= 150 then
-						health = health - 5
-					else
-						health = health - 1
+				TriggerEvent('esx_status:getStatus', 'thirst', function(status)
+					if status.val == 0 then
+						if prevHealth <= 150 then
+							health = health - 5
+						else
+							health = health - 1
+						end
 					end
-				end
-			end)
+				end)
+			end
 
 			if health ~= prevHealth then
-				SetEntityHealth(playerPed, health)
+				SetEntityHealth(ped, health)
 			end
 		end
 	end)
@@ -73,8 +120,7 @@ end)
 
 RegisterNetEvent('esx_basicneeds:onEat')
 AddEventHandler('esx_basicneeds:onEat', function(prop_name, itemname, type, count, text)
-	if not IsEating then
-
+	if not IsEating and not IsDead then
 		local ped = GetPlayerPed(-1)
 		local Anim_Dict = "mp_player_inteat@burger"
 		local Anim_Start = "mp_player_int_eat_burger_enter"
@@ -96,49 +142,28 @@ AddEventHandler('esx_basicneeds:onEat', function(prop_name, itemname, type, coun
 			local boneIndex = GetPedBoneIndex(ped, 18905)
 			AttachEntityToEntity(prop, ped, boneIndex, 0.15, 0.040, 0.025, 15.0, 175.0, 0.0, true, true, false, true, 1, true)
 
-			loadAnimDict(Anim_Dict)
-
-			TaskPlayAnim(ped, Anim_Dict, Anim_Start, 8.0, 1.0, -1, 2, 0, 0, 0, 0)
-
-			while (GetEntityAnimCurrentTime(ped, Anim_Dict, Anim_Start) < 0.999999) do 
-				Citizen.Wait(0)
-			end 
-
-			ClearPedTasks(ped)
-			TaskPlayAnim(ped, Anim_Dict, Anim_Loop, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-
-			Wait(5000)
-			TaskPlayAnim(ped, Anim_Dict, Anim_End, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-			ClearPedTasks(ped)
+			ESX.Streaming.RequestAnimDict(Dict, function()
+				TaskPlayAnim(ped, Anim_Dict, Anim_Start, 8.0, 1.0, -1, 2, 0, 0, 0, 0)
+				while (GetEntityAnimCurrentTime(ped, Anim_Dict, Anim_Start) < 0.999999) do 
+					Wait(0)
+				end 
+				ClearPedTasks(ped)
+				TaskPlayAnim(ped, Anim_Dict, Anim_Loop, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				Wait(5000)
+				TaskPlayAnim(ped, Anim_Dict, Anim_End, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				ClearPedTasks(ped)
+			end)
+			
 			DeleteObject(prop)
 			IsEating = false
-			TriggerServerEvent('esx_basicneeds:updateStatus', type, count)
+			if type then TriggerServerEvent('esx_basicneeds:updateStatus', type, count) end
 			TriggerServerEvent('esx_basicneeds:removeItem', itemname)
-			TriggerEvent("pNotify:SendNotification", {
-				text = text,
-				type = "error",
-				timeout = 3000,
-				layout = "bottomCenter",
-				queue = "global"
-			})
+			ESX.ShowNotification(text, 3000, 'success')
 		end
 	else
-		TriggerEvent("pNotify:SendNotification", {
-			text = '<strong class="blue-text">กรุณารอ...</strong>',
-			type = "error",
-			timeout = 3000,
-			layout = "bottomCenter",
-			queue = "global"
-		})
+		ESX.ShowNotification(_U('busy'), 3000, 'error')
 	end
 end)
-
-function loadAnimDict(dict)
-    while (not HasAnimDictLoaded(dict)) do
-        RequestAnimDict(dict)
-        Citizen.Wait(5)
-    end
-end 
 
 RegisterNetEvent('esx_basicneeds:onDrink')
 AddEventHandler('esx_basicneeds:onDrink', function(prop_name, itemname, type, count, text)
@@ -162,40 +187,28 @@ AddEventHandler('esx_basicneeds:onDrink', function(prop_name, itemname, type, co
 			local boneIndex = GetPedBoneIndex(ped, 18905)
 			AttachEntityToEntity(prop, ped, boneIndex, 0.13, 0.005, 0.020, 270.0, 175.0, 20.0, true, true, false, true, 1, true)
 
-			loadAnimDict(Dict)
-
-			TaskPlayAnim(ped, Dict, "intro_bottle", 8.0, 1.0, -1, 2, 0, 0, 0, 0)
-
-			while (GetEntityAnimCurrentTime(ped, Dict, "intro_bottle") < 0.999999) do 
-				Citizen.Wait(0)
-			end 
-
-			ClearPedTasks(ped)
-			TaskPlayAnim(ped, Dict, "loop_bottle", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-			Wait(5000)
-			TaskPlayAnim(ped, Dict, "outro_bottle", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-			ClearPedTasks(ped)
-			Wait(1000)
+			ESX.Streaming.RequestAnimDict(Dict, function()
+				TaskPlayAnim(ped, Dict, "intro_bottle", 8.0, 1.0, -1, 2, 0, 0, 0, 0)
+				while (GetEntityAnimCurrentTime(ped, Dict, "intro_bottle") < 0.999999) do 
+					Wait(0)
+				end 
+				ClearPedTasks(ped)
+				TaskPlayAnim(ped, Dict, "loop_bottle", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				Wait(5000)
+				TaskPlayAnim(ped, Dict, "outro_bottle", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				ClearPedTasks(ped)
+				Wait(1000)
+			end)
+			
 			DeleteObject(prop)
+			
 			IsEating = false
-			TriggerServerEvent('esx_basicneeds:updateStatus', type, count)
+			if type then TriggerServerEvent('esx_basicneeds:updateStatus', type, count) end
 			TriggerServerEvent('esx_basicneeds:removeItem', itemname)
-			TriggerEvent("pNotify:SendNotification", {
-				text = text,
-				type = "error",
-				timeout = 3000,
-				layout = "bottomCenter",
-				queue = "global"
-			})
+			ESX.ShowNotification(text, 3000, 'success')
 		end
 	else
-		TriggerEvent("pNotify:SendNotification", {
-			text = '<strong class="blue-text">กรุณารอ...</strong>',
-			type = "error",
-			timeout = 3000,
-			layout = "bottomCenter",
-			queue = "global"
-		})
+		ESX.ShowNotification(_U('busy'), 3000, 'error')
 	end
 end)
 
@@ -223,41 +236,34 @@ AddEventHandler('esx_basicneeds:onDrink2', function(prop_name, itemname, type, c
 			local boneIndex = GetPedBoneIndex(ped, 57005)
 			AttachEntityToEntity(prop, ped, boneIndex, 0.125, 0.01, -0.02, -80.0, -20.0, -30.0, true, true, false, true, 1, true)
 
-			loadAnimDict(DictEnter)
+			ESX.Streaming.RequestAnimDict(DictEnter, function()
+				TaskPlayAnim(ped, DictEnter, "enter", 8.0, 1.0, -1, 2, 0, 0, 0, 0)
+				while (GetEntityAnimCurrentTime(ped, DictEnter, "enter") < 0.999999) do 
+					Wait(0)
+				end 
+				ClearPedTasks(ped)
+			end)
 
-			TaskPlayAnim(ped, DictEnter, "enter", 8.0, 1.0, -1, 2, 0, 0, 0, 0)
+			ESX.Streaming.RequestAnimDict(DictBase, function()
+				TaskPlayAnim(ped, DictBase, "idle_a", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				Wait(5000)
+			end)
 
-			while (GetEntityAnimCurrentTime(ped, DictEnter, "enter") < 0.999999) do 
-				Citizen.Wait(0)
-			end 
+			ESX.Streaming.RequestAnimDict(DictExit, function()
+				loadAnimDict(DictExit)
+				TaskPlayAnim(ped, DictExit, "exit", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
+				ClearPedTasks(ped)
+				Wait(1000)
+			end)
 
-			ClearPedTasks(ped)
-			loadAnimDict(DictBase)
-			TaskPlayAnim(ped, DictBase, "idle_a", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-			Wait(5000)
-			loadAnimDict(DictExit)
-			TaskPlayAnim(ped, DictExit, "exit", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-			ClearPedTasks(ped)
-			Wait(1000)
 			DeleteObject(prop)
+			
 			IsEating = false
-			TriggerServerEvent('esx_basicneeds:updateStatus', type, count)
+			if type then TriggerServerEvent('esx_basicneeds:updateStatus', type, count) end
 			TriggerServerEvent('esx_basicneeds:removeItem', itemname)
-			TriggerEvent("pNotify:SendNotification", {
-				text = text,
-				type = "error",
-				timeout = 3000,
-				layout = "bottomCenter",
-				queue = "global"
-			})
+			ESX.ShowNotification(text, 3000, 'success')
 		end
 	else
-		TriggerEvent("pNotify:SendNotification", {
-			text = '<strong class="blue-text">กรุณารอ...</strong>',
-			type = "error",
-			timeout = 3000,
-			layout = "bottomCenter",
-			queue = "global"
-		})
+		ESX.ShowNotification(_U('busy'), 3000, 'error')
 	end
 end)
