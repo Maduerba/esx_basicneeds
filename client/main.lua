@@ -32,18 +32,20 @@ AddEventHandler('esx_status:onTick', function(data)
 	local prevHealth = GetEntityHealth(playerPed)
 	local health     = prevHealth
 	
-	for k, v in pairs(data) do
-		if v.name == 'hunger' and v.percent == 0 then
-			if prevHealth <= 150 then
-				health = health - 5
-			else
-				health = health - 1
-			end
-		elseif v.name == 'thirst' and v.percent == 0 then
-			if prevHealth <= 150 then
-				health = health - 5
-			else
-				health = health - 1
+	if not IsDead then
+		for k, v in pairs(data) do
+			if v.name == 'hunger' and v.percent == 0 then
+				if prevHealth <= 150 then
+					health = health - 5
+				else
+					health = health - 1
+				end
+			elseif v.name == 'thirst' and v.percent == 0 then
+				if prevHealth <= 150 then
+					health = health - 5
+				else
+					health = health - 1
+				end
 			end
 		end
 	end
