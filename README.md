@@ -1,34 +1,31 @@
 # esx_basicneeds
 This script implements hunger and thirst status, they can be increased when eating bread or drinking water.
+This script is both compatible with ESX v1 and ESX Legacy
 
 ## Requirements
 - [esx_status](https://github.com/ESX-Org/esx_status)
 
 ## Download & Installation
 
-### Using [fvm](https://github.com/qlaffont/fvm-installer)
-```
-fvm install --save --folder=esx esx-org/esx_basicneeds
-```
-
 ### Using Git
 ```
 cd resources
-git clone https://github.com/ESX-Org/esx_basicneeds [esx]/esx_basicneeds
+git clone https://github.com/Maduerba/esx_basicneeds [esx]/esx_basicneeds
 ```
 
 ### Manually
-- Download https://github.com/ESX-Org/esx_basicneeds/archive/master.zip
+- Download https://github.com/Maduerba/esx_basicneeds/archive/refs/heads/master.zip
 - Put it in the `[esx]` directory
 
 
 ## Installation
-- Import `esx_basicneeds.sql` in your database
+- Change your `esx_basicneeds/config.lua:3` Config.Setup to `true`
 - Add this in your server.cfg :
-
 ```
-start esx_basicneeds
+ensure esx_basicneeds
 ```
+- Change your `esx_basicneeds/config.lua:3` Config.Setup back to `false`
+- Restart your server
 
 # Legal
 ### License
