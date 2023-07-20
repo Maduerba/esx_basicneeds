@@ -2,20 +2,30 @@ fx_version 'adamant'
 game 'gta5'
 lua54 'yes'
 
-title 'ESX Basic Needs'
-description 'This script implements hunger and thirst status, they can be increased when eating bread or drinking water.'
-version '1.8.6'
+author 'ESX-Framework + Maduerba'
+website 'https://uerba.tebex.io/'
+title 'esx_basicneeds'
+description 'Official ESX-Legacy Basic Needs (edited)'
+version '1.2'
+legacyversion '1.9.1'
 
 dependencies {
-	'es_extended',
-	'esx_status'
+    'es_extended',
+    'esx_status'
 }
 
-shared_scripts {
-	'@es_extended/locale.lua',
-	'locales/*.lua',
-	'config.lua',
+shared_script '@es_extended/imports.lua'
+
+server_scripts {
+    '@es_extended/locale.lua',
+    'locales/*.lua',
+    'config.lua',
+    'server/main.lua'
 }
 
-client_script 'client/main.lua'
-server_scripts {'server/main.lua', '@oxmysql/lib/MySQL.lua'}
+client_scripts {
+    '@es_extended/locale.lua',
+    'locales/*.lua',
+    'config.lua',
+    'client/main.lua'
+}

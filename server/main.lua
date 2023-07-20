@@ -1,40 +1,36 @@
-local version = GetResourceMetadata('es_extended', 'version')
-if version == '1.1.0' then
-    ESX = nil
-    TriggerEvent('esx:getSharedObject', function(obj) ESX = obj; end)   
-else
-    ESX = exports["es_extended"]:getSharedObject()
-end
-
-for item,data in pairs(Config.Items) do
-	if Config.Setup then
-		if version == '1.1.0' then
-			MySQL.Async.execute('INSERT INTO items (name, label, limit) VALUES (@name, @label, @limit)', {
-				['@name'] = item,
-				['@label'] = data.label,
-				['@limit'] = 5,
-			})
-		else
-			MySQL.Async.execute('INSERT INTO items (name, label, weight) VALUES (@name, @label, @weight)', {
-				['@name'] = item,
-				['@label'] = data.label,
-				['@weight'] = 0.1,
-			})
-		end
-	end
-
-	ESX.RegisterUsableItem(item, function(source)
-		TriggerClientEvent('esx_basicneeds:'..data.action, source, data.prop, item, data.type, data.amount, _U('consumed')..''..data.label)
-	end)
-end
-
-RegisterServerEvent('esx_basicneeds:updateStatus')
-AddEventHandler('esx_basicneeds:updateStatus', function(type, count)
-	TriggerClientEvent('esx_status:add', source, type, count)
+CreateThread(function()
+	for k,v in pairs(Config.Items) do
+		ESX.RegisterUsableItem(k, function(source)
+			local xPlayer = ESX.GetPlayerFromId(source)
+			if v.remove then
+				xPlayer.removeInventoryItem(k,1)
+			end
+			if v.type == "food" then
+				TriggerClientEvent("esx_status:add", source, "hunger", v.status)
+				TriggerClientEvent('esx_basicneeds:onUse', source, v.type)
+				xPlayer.showNotification(TranslateCap('used_food', ESX.GetItemLabel(k)))
+			elseif v.type == "drink" then
+				TriggerClientEvent("esx_status:add", source, "thirst", v.status)
+				TriggerClientEvent('esx_basicneeds:onUse', source, v.type)
+				xPlayer.showNotification(TranslateCap('used_drink', ESX.GetItemLabel(k)))
+			else
+				print(string.format('^1[ERROR]^0 %s has no correct type defined.', k))
+			end
+		end)
+	end 
 end)
 
-RegisterServerEvent('esx_basicneeds:removeItem')
-AddEventHandler('esx_basicneeds:removeItem', function(item)
-    local ply = ESX.GetPlayerFromId(source)
-    ply.removeInventoryItem(item, 1)
+ESX.RegisterCommand('heal', 'admin', function(xPlayer, args, showError)
+	args.playerId.triggerEvent('esx_basicneeds:healPlayer')
+	args.playerId.showNotification(TranslateCap('got_healed'))
+end, true, {help = 'Heal a player, or yourself - restores thirst, hunger and health.', validate = true, arguments = {
+	{name = 'playerId', help = 'the player id', type = 'player'}
+}})
+
+AddEventHandler('txAdmin:events:healedPlayer', function(eventData)
+	if GetInvokingResource() ~= "monitor" or type(eventData) ~= "table" or type(eventData.id) ~= "number" then
+		return
+	end
+
+	TriggerClientEvent('esx_basicneeds:healPlayer', eventData.id)
 end)
